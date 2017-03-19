@@ -1,99 +1,124 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>SigmaJS example</title>
+    <link href="css/jquery-ui.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <script src="js/jquery-3.1.1.min.js"></script>
+    <script src="js/jquery-ui-1.12.1.min.js"></script>
+    <script src="js/sigma.min.js"></script>
+    <script src="js/plugins/sigma.layout.forceAtlas2.min.js"></script>
+    <script src="js/script.js"></script>
 </head>
 <body>
-<style>
-  #progress_bar {
-    margin: 10px 0;
-    padding: 3px;
-    border: 1px solid #000;
-    font-size: 14px;
-    clear: both;
-    opacity: 0;
-    -moz-transition: opacity 1s linear;
-    -o-transition: opacity 1s linear;
-    -webkit-transition: opacity 1s linear;
-  }
-  #progress_bar.loading {
-    opacity: 1.0;
-  }
-  #progress_bar .percent {
-    background-color: #99ccff;
-    height: auto;
-    width: 0;
-  }
-</style>
+    <div id="wrapper">
+        <div id="sidebar">
+            <div class="graph-wrapper">
+                <div id="counter"><span id="counter-text">0 updates</span></div>
+                <div id="graph-container"></div>
+            </div>
+            <div id="legend-wrapper">
+                <p><span class="ui-icon ui-icon-bullet"></span>A circle refers to a person in the network.
+                    Color refers to the average rating received. <br /><span class="ui-icon ui-icon-blank red-icon"></span> is negative and <span class="ui-icon ui-icon-blank green-icon"></span> is positive.
+                </p>
+                <p><span class="ui-icon ui-icon-arrowthick-1-e"></span>An arrows refers to rating given to an person.
+                    Color refers to the rating given. <br /><span class="ui-icon ui-icon-blank red-icon"></span> is negative and <span class="ui-icon ui-icon-blank green-icon"></span> is positive.
+                </p>
+                <p> </p>
+            </div>
+            <div id="graph-msg-container" class="ui-widget ui-state-default ui-corner-all">
+                <p class="success-text"><span class="ui-icon ui-icon-info"></span>The provided json object was successfully parsed.</p>
+                <p class="invalid-text"><span class="ui-icon ui-icon-info"></span>The provided json object is not a valid graph.</p>
+                <p class="failure-text"><span class="ui-icon ui-icon-alert"></span>No json object was provided.</p>
+            </div>
+            <div id="form-msg-container" class="ui-widget ui-state-error ui-corner-all">
+                <p class="invalid-text"><span class="ui-icon ui-icon-alert"></span>You cannot select more than four people.</p>
+                <p class="failure-text"><span class="ui-icon ui-icon-alert"></span>You need exactly 2 positive and 2 negative rated people.</p>
+            </div>
+        </div>
+        <div id="content">
+            <div id="page-1">
+                <form method="post" action="" onsubmit="return false;" class="form">
+                    <div>
+                        <p>This experiment aims to measure how trust in recommendation advice propagates through networks.</p>
+                        <p>Assume that you are looking asking for advice on a purchase. For this example let's imagine you need advice on purchasing a pair of new shoes.</p>
+                        <p>Please tell us who you are.</p>
+                    </div>
+                    <div class="button-container">
+                        <select id="select-yourself"></select>
+                    </div>
+                    <div class="button-container">
+                        <button id="submit-name-button" class="ui-button">submit</button>
+                    </div>
+                </form>
+            </div>
+            <div id="page-2">
+                <form method="post" action="" onsubmit="return false;" class="form">
+                    <table id="form-table">
+                        <thead>
+                            <tr>
+                                <td colspan="2">
+                                    <p>This experiment aims to measure how trust in recommendation advice propagates through networks.</p>
+                                    <p>Assume that you are looking asking for advice on a purchase. For this example let's imagine you need advice on purchasing a pair of new shoes.</p>
+                                    <p>Help build the network by picking <span class="good-text">2 people whose advice you would trust</span> and be willing to follow and <span class="bad-text">2 people whose advice you would not trust</span> and thus not not follow.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th width="33%"></th>
+                                <th width="66%"><span class="leftie">not trustworthy</span><span class="rightie">very trustworthy</span></th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="2">
+                                    <div class="button-container">
+                                        <button id="submit-ratings-button" class="ui-button">submit</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </form>
+            </div>
+            <div id="page-3">
+                <h2 class="again node-name">Node 1</h2>
+                <p>This experiment aims to measure how trust in recommendation advice propagates through networks.</p>
+                <p>Assume that you are looking asking for advice on a purchase. For this example let's imagine you need advice on purchasing a pair of new shoes.</p>
+                <p>You have just gotten advice on from <strong><span class="node-name">Node 1</span></strong>. Do you trust his advice?</p>
+                <div class="button-container">
+                    <div class="controlgroup" id="rating-group">
+                        <label for="rating-0">No</label>
+                        <input type="radio" name="rating" id="rating-0">
+                        <label for="rating-1">Not Really</label>
+                        <input type="radio" name="rating" id="rating-1">
+                        <label for="rating-2">Somewhat</label>
+                        <input type="radio" name="rating" id="rating-2">
+                        <label for="rating-3">Yes</label>
+                        <input type="radio" name="rating" id="rating-3">
+                    </div>
+                </div>
+                <div class="button-container">
+                    <button id="submit-review-button" class="ui-button">submit</button>
+                </div>
+                <p>The graphs below show how trust in advice propagates from <strong><span class="node-name">Node 1</span></strong> to you.</p>
+                <p>The shortest high trust path</p>
+                <div class="graph-wrapper"><div id="subgraph1-container"></div></div>
+                <p>The shortest low trust path</p>
+                <div class="graph-wrapper"><div id="subgraph2-container"></div></div>
+                <p>A random path</p>
+                <div class="graph-wrapper"><div id="subgraph3-container"></div></div>
 
-<input type="file" id="files" name="file" />
-<button onclick="abortRead();">Cancel read</button>
-<div id="progress_bar"><div class="percent">0%</div></div>
-
-<script>
-  var reader;
-  var progress = document.querySelector('.percent');
-
-  function abortRead() {
-    reader.abort();
-  }
-
-  function errorHandler(evt) {
-    switch(evt.target.error.code) {
-      case evt.target.error.NOT_FOUND_ERR:
-        alert('File Not Found!');
-        break;
-      case evt.target.error.NOT_READABLE_ERR:
-        alert('File is not readable');
-        break;
-      case evt.target.error.ABORT_ERR:
-        break; // noop
-      default:
-        alert('An error occurred reading this file.');
-    };
-  }
-
-  function updateProgress(evt) {
-    // evt is an ProgressEvent.
-    if (evt.lengthComputable) {
-      var percentLoaded = Math.round((evt.loaded / evt.total) * 100);
-      // Increase the progress bar length.
-      if (percentLoaded < 100) {
-        progress.style.width = percentLoaded + '%';
-        progress.textContent = percentLoaded + '%';
-      }
-    }
-  }
-
-  function handleFileSelect(evt) {
-    // Reset progress indicator on new file selection.
-    progress.style.width = '0%';
-    progress.textContent = '0%';
-
-    reader = new FileReader();
-    reader.onerror = errorHandler;
-    reader.onprogress = updateProgress;
-    reader.onabort = function(e) {
-      alert('File read cancelled');
-    };
-    reader.onloadstart = function(e) {
-      document.getElementById('progress_bar').className = 'loading';
-    };
-    reader.onload = function(e) {
-      // Ensure that the progress bar displays 100% at the end.
-      progress.style.width = '100%';
-      progress.textContent = '100%';
-      setTimeout("document.getElementById('progress_bar').className='';", 2000);
-    }
-
-    // Read in the image file as a binary string.
-    reader.readAsBinaryString(evt.target.files[0]);
-  }
-
-  document.getElementById('files').addEventListener('change', handleFileSelect, false);
-</script>
+            </div>
+            <div id="page-4">
+                <p class="again">Please wait until all the nodes have been updated.</p>
+                <p class="again"><img id="loading" src="img/loading.gif" alt="loading" /></p>
+            </div>
+        </div>
+        <div style="clear: both;"></div>
+    </div>
 </body>
 </html>

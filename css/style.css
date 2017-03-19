@@ -1,0 +1,122 @@
+body {
+    font-family: Arial,Helvetica,sans-serif;
+    font-size: 1em;
+    font-weight:normal;
+    text-decoration:none;
+}
+#wrapper {
+    width: 1240px;
+    margin: auto;
+}
+
+.button-container {
+    text-align:center;
+    padding: 12px 0;
+}
+
+#sidebar {
+    position: fixed;
+    float:left;
+    width: 600px;
+}
+
+#graph-msg-container, #form-msg-container  {
+    margin: 12px;
+    display:none;
+}
+
+.success-text span, .failure-text span, .invalid-text span {
+    margin-left:12px;
+    margin-right:8px;
+}
+
+.red-icon {
+    background-color: #fa3737;
+}
+
+.green-icon {
+    background-color: #37fa37;
+}
+
+.graph-wrapper {
+    width: 596px;
+    border:1px solid black;
+    padding: 0 0 2px 2px;
+}
+
+#legend-wrapper {
+        font-size: 0.8em;
+
+}
+
+#counter {
+    text-align:right;
+}
+
+#counter-text {
+    display:inline-block;
+    padding: 2px;
+    background-color:red;
+    color:white;
+}
+
+#graph-container {
+    width: 592px;
+    height: 592px;
+    visibility:hidden;
+}
+
+#content {
+    float:right;
+    width: 600px;
+    padding: 12px;
+}
+
+#form-table {
+    width:100%;
+}
+
+#form-table td {
+    padding-top: 8px;
+}
+
+#form-table .ui-button.ui-widget.ui-controlgroup-item.ui-checkboxradio-label.ui-corner-all {
+    width: 120px;
+    text-align:left;
+}
+
+span.leftie {
+    display:inline-block;
+    float:left;
+}
+
+span.rightie {
+    display:inline-block;
+    float:right;
+}
+
+span.good-text {
+    font-size: 1.1em;
+    font-weight:bold;
+    color:green;
+}
+
+span.bad-text {
+    font-size: 1.1em;
+    font-weight:bold;
+    color:red;
+}
+
+#subgraph1-container, #subgraph2-container, #subgraph3-container{
+    width: 592px;
+    height: 120px;
+}
+
+
+#page-2, #page-3, #page-4 {
+    display:none;
+}
+
+.again {
+    text-align:center;
+}
