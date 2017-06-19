@@ -120,3 +120,20 @@ span.bad-text {
 .again {
     text-align:center;
 }
+
+#span-path-mean {
+    font-size: 4em;
+    font-weight:bold;
+    color:black;
+}
+
+#span-path-plusminus, #span-path-stddev {
+    font-size: 2em;
+    font-weight:bold;
+    color:black;
+}
+
+#form-analysis2 {
+    width: 100%;
+} 
+

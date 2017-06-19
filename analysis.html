@@ -1,0 +1,117 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Graph Analysis</title>
+    <link href="css/jquery-ui.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <script src="js/jquery-3.1.1.min.js"></script>
+    <script src="js/jquery-ui-1.12.1.min.js"></script>
+    <script src="js/sigma.min.js"></script>
+    <script src="js/plugins/sigma.layout.forceAtlas2.min.js"></script>
+    <script src="js/script.js"></script>
+</head>
+<body>
+    <div id="wrapper">
+        <div id="sidebar">
+            <div class="graph-wrapper">
+                <div id="counter"><span id="counter-text">0 updates</span></div>
+                <div id="graph-container"></div>
+            </div>
+            <div id="legend-wrapper">
+                <p><span class="ui-icon ui-icon-bullet"></span>A circle refers to a person in the network.
+                    Color refers to the average rating received. <br /><span class="ui-icon ui-icon-blank red-icon"></span> is negative and <span class="ui-icon ui-icon-blank green-icon"></span> is positive.
+                </p>
+                <p><span class="ui-icon ui-icon-arrowthick-1-e"></span>An arrows refers to rating given to an person.
+                    Color refers to the rating given. <br /><span class="ui-icon ui-icon-blank red-icon"></span> is negative and <span class="ui-icon ui-icon-blank green-icon"></span> is positive.
+                </p>
+                <p> </p>
+            </div>
+            <div id="graph-msg-container" class="ui-widget ui-state-default ui-corner-all">
+                <p class="success-text"><span class="ui-icon ui-icon-info"></span>The provided json object was successfully parsed.</p>
+                <p class="invalid-text"><span class="ui-icon ui-icon-info"></span>The provided json object is not a valid graph.</p>
+                <p class="failure-text"><span class="ui-icon ui-icon-alert"></span>No json object was provided.</p>
+            </div>
+            <div id="form-msg-container" class="ui-widget ui-state-error ui-corner-all">
+                <p class="invalid-text"><span class="ui-icon ui-icon-alert"></span>You cannot select more than four people.</p>
+                <p class="failure-text"><span class="ui-icon ui-icon-alert"></span>You need exactly 2 positive and 2 negative rated people.</p>
+            </div>
+        </div>
+        <div id="content">
+            <div>
+                <form method="post" action="" onsubmit="return false;" class="form">
+                    <table id="form-analysis">
+                        <tbody>
+                            <tr>
+                                <td width="60%"><p>Graph size (number of nodes)</p></td>
+                                <td width="20%"><input id="nodes-input" type="number" name="nodes" min="0" step="1" value="40" /></td>
+                                <td width="20%" align="right"><button id="nodes-button" class="ui-button">submit</button></td>
+                            </tr>
+                            <tr>
+                                <td><p>Trust lower bound (in std dev)</p></td>
+                                <td><input id="lowerbound-input" type="number" name="lowerbound" min="0" step="0.05" value="1" /></td>
+                                <td align="right"><button id="lowerbound-button" class="ui-button">submit</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </form>
+            </div>
+            <div id="page-analysis">
+                <table id="form-analysis2">
+                    <tbody>
+                        <tr >
+                            <td width="80%"><p>No. of positive edges</p></td>
+                            <td width="20%" align="left"><p id="p-trust-count">-</p></td>
+                        </tr>
+                        <tr>
+                            <td><p>Average trust (positive edges)</p></td>
+                            <td align="left"><p id="p-trust-mean">-</p></td>
+                        </tr>
+                        <tr>
+                            <td><p>Standard deviation (postive edges)</p></td>
+                            <td align="left"><p id="p-trust-stddev">-</p></td>
+                        </tr>
+                        <tr>
+                            <td><p>Lower bound for trust (postive edges)</p></td>
+                            <td align="left"><p id="p-trust-lowerbound">-</p></td>
+                        </tr>
+                        <tr>
+                            <td><p>No. of possible paths (all edges)</p></td>
+                            <td align="left"><p id="p-path-all-count">-</p></td>
+                        </tr>
+                        <tr>
+                            <td><p>No. of possible trust paths (positive edges)</p></td>
+                            <td align="left"><p id="p-path-count">-</p></td>
+                        </tr>
+                        <tr>
+                            <td><p>No. of trustworthy paths (trust higher than lower bound)</p></td>
+                            <td align="left"><p id="p-trust-path-count">-</p></td>
+                        </tr>
+                        <tr>
+                            <td><p>No. of edges in longest trustworthy path</p></td>
+                            <td align="left"><p id="p-path-max">-</p></td>
+                        </tr>
+                        <tr>
+                            <td><p>No. of edges in shortest trustworthy path</p></td>
+                            <td align="left"><p id="p-path-min">-</p></td>
+                        </tr>
+                        <tr>
+                            <td colspan="2" align="middle">
+                                <p>Average path length in a trustworthy graph</p>
+                                <p><span id="span-path-mean">0.00</span><span id="span-path-plusminus">&nbsp;&#177;&nbsp;</span><span id="span-path-stddev">0.00</span></p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="page-4">
+                <p class="again">Please wait until all the nodes have been updated.</p>
+                <p class="again"><img id="loading" src="img/loading.gif" alt="loading" /></p>
+            </div>
+        </div>
+        <div style="clear: both;"></div>
+    </div>
+</body>
+</html>

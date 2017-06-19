@@ -11,7 +11,8 @@ $(document).ready(function () {
     pagedata.edgesPerNode = 4;
     pagedata.maxEdgeWeight = 100;
     pagedata.numberOfNodes = 100;
-    pagedata.updateTimeInterval = 250;
+    pagedata.updateTimeInterval = 20;
+    pagedata.paths = [];
     pagedata.sigmaGraph = new sigma({
         graph: createGraph(pagedata.numberOfNodes),
         container: 'graph-container',
@@ -21,38 +22,76 @@ $(document).ready(function () {
         }
     });
 
-    // Add HTML content
-    addRows(pagedata.sigmaGraph);
-    $(".controlgroup").controlgroup();
-    $("#select-yourself").selectmenu();
+    // Instantiate the index page
+    if ( $("#page-1").length ) {
+        // Add HTML content
+        addRows(pagedata.sigmaGraph);
+        $(".controlgroup").controlgroup();
+        $("#select-yourself").selectmenu();
 
-    // Add interactivity
-    $("#submit-name-button").click(function () {
-        submitName();
-    });
-    $("#submit-ratings-button").click(function () {
-        submitForm();
-    });
-    $("#submit-review-button").click(function () {
-        $('input[type="radio"][name="rating"]').prop("checked", false);
-        $('input[type="radio"][name="rating"]').checkboxradio('refresh');
-        drawNewGraphs();
-    });
-    $('#form-table input[type="checkbox"]').on('change', function () {
-        enableSlider($(this).is(":checked"), $(this).val());
-    });
-    $(".slider").slider({
-        range: false,
-        disabled: true,
-        max: pagedata.maxEdgeWeight,
-        value: (pagedata.maxEdgeWeight / 2),
-        change: function (event, ui) {
-            $(this).css('background-color', getColorFromRange(ui.value, pagedata.maxEdgeWeight, false));
-        }
-    });
+        // Add interactivity
+        $("#submit-name-button").click(function () {
+            submitName();
+        });
+        $("#submit-ratings-button").click(function () {
+            submitForm();
+        });
+        $("#submit-review-button").click(function () {
+            $('input[type="radio"][name="rating"]').prop("checked", false);
+            $('input[type="radio"][name="rating"]').checkboxradio('refresh');
+            drawNewGraphs();
+        });
+        $('#form-table input[type="checkbox"]').on('change', function () {
+            enableSlider($(this).is(":checked"), $(this).val());
+        });
+        $(".slider").slider({
+            range: false,
+            disabled: true,
+            max: pagedata.maxEdgeWeight,
+            value: (pagedata.maxEdgeWeight / 2),
+            change: function (event, ui) {
+                $(this).css('background-color', getColorFromRange(ui.value, pagedata.maxEdgeWeight, false));
+            }
+        });
+    }
 
+    // Instantiate analysis page
+    if ( $("#nodes-button").length ){
+
+        // add interactivity
+        $("#nodes-input").keypress(function(event) {
+            if (event.which == 13) {
+                event.preventDefault();
+                $("#nodes-button").click();
+            }
+        });
+
+        $("#lowerbound-input").keypress(function(event) {
+            if (event.which == 13) {
+                event.preventDefault();
+                $("#lowerbound-button").click();
+            }
+        });
+
+        $("#nodes-button").click(function () {
+            if( !isNaN(parseInt($("#nodes-input").val())) ){
+                // create new analysis graph
+                submitAnalysisGraph();
+            }
+        });
+
+        $("#lowerbound-button").click(function () {
+            if( !isNaN(parseInt($("#lowerbound-input").val())) ){
+                // analyse the graph
+                submitLowerBound();
+            }
+        });
+
+        // start an analysis with the page load
+        $("#nodes-button").click();
+
+    }
 });
-
 
 function customizeSigma() {
 
@@ -132,6 +171,64 @@ function customizeSigma() {
         return g;
     });
 
+    // Calculate the total distance of a path
+    // The distance is calculated using the trust formula
+    //
+    // @param {?array} path                   Array containing the id of each node in the path
+    //
+    // @param {?number} maxEdgeWeight           The maximum weight of an edge (all edge weights must be between 0 and maxEdgeWeight).
+    //                                          Note: must be > 0.
+    //
+    // @returns {?number}                       The total distance of the path (calculate using the trust formula)
+    //                                          Invalid or non existant paths return -1
+    // 
+    sigma.classes.graph.addMethod('getPathDistance', function (path, maxEdgeWeight) {
+        var a,
+            b,
+            edgeTrust,
+            totalTrust,
+            weight,
+            weights = [],
+            trustIncrement = 1;
+
+        // traverse through the path
+        for (var i = 0; i < path.length - 1; i++) {
+            // try to get the node
+            a = this.nodesIndex[path[i]];
+            b = this.nodesIndex[path[i + 1]];
+
+            if (a && b && 'id' in a && 'id' in b) {
+
+                // clear the edge stack
+                weight = -1;
+
+                // find the edge to the next node in the graph
+                $.each(this.outNeighborsIndex[path[i]][path[i+1]], function (key, edge) {
+                    if(weight < edge.weight)
+                        weight = edge.weight;
+                });
+
+                // add the weight to stack or give up 
+                if(weight > 0 ) {
+                    weights.push(weight);
+                } else {
+                    weights = [];
+                    break;
+                }
+            }
+        }
+
+        // Calculate distance (total trust)
+        totalTrust = weights.length > 0 ? 0 : -1;
+        for(var i = 0; i < weights.length; i++){
+            edgeTrust = convertFromEdgeWeight(weights[i], maxEdgeWeight).toFixed(3);
+            trustIncrement *= edgeTrust >= 0 ? edgeTrust : 0;
+            totalTrust = edgeTrust >= 0 ? totalTrust + ( trustIncrement / weights.length) : -0.5;
+        }
+
+        return totalTrust;
+    });
+
     // Changes the color of each node to the average of all incoming edge weights
     sigma.classes.graph.addMethod('updateColors', function () {
         var nodesIndexa = this.nodesIndex;
@@ -168,8 +265,13 @@ function customizeSigma() {
         var visited = {}
         var path = {}
         var distances = {}
-        var minDist = 0;
+        var highestRecordedTrust = 0;
         var currentKey = start;
+        var totalTrust = 0;
+        var trustIncrement = 0;
+        var edgeTrust = 0;
+
+        var logstring = "";
 
         // make sure the start and end node exist
         if (start in this.nodesIndex && end in this.nodesIndex) {
@@ -182,13 +284,15 @@ function customizeSigma() {
             distances[start] = 0;
 
             // Go through all the nodes
-            while (Object.keys(distances).length > 0 && currentKey != end && minDist != -1) {
-
+            while (Object.keys(distances).length > 0 && currentKey != end && highestRecordedTrust != -1) {
+                
                 // select the closest node
-                minDist = -1;
+                highestRecordedTrust = -1;
+                logstring = "";
                 $.each(distances, function (key, value) {
-                    if (value >= 0 && (value < minDist || minDist == -1)) {
-                        minDist = value;
+                    logstring += key + "=" + value.toFixed(3) + " ";
+                    if (value >= highestRecordedTrust && !(currentKey == end && value == highestRecordedTrust)) {
+                        highestRecordedTrust = value;
                         currentKey = key;
                     }
                 });
@@ -197,37 +301,74 @@ function customizeSigma() {
                 visited[currentKey] = distances[currentKey];
                 delete distances[currentKey];
 
+                // Calculate the trust using all the edges leading to this node (set total trust to -0.5 if there is a negative edge in the path)
+                trustIncrement = 1;
+                totalTrust = 0;
+                for (var i = 0; i < path[currentKey].length - 1; i++) {
+                    $.each(this.outNeighborsIndex[path[currentKey][i]][path[currentKey][i + 1]], function (key, edge) {
+                        edgeTrust = convertFromEdgeWeight(edge.weight, maxEdgeWeight);
+                        trustIncrement *= edgeTrust >= 0 ? edgeTrust : 0;
+                        totalTrust = edgeTrust >= 0 ? totalTrust + trustIncrement / (path[currentKey].length - 1) : -0.5;
+                        return false;
+                    });
+                }
+
+                logstring += " XXX " + currentKey + "=" + totalTrust.toFixed(3) + "|" + trustIncrement.toFixed(3) + " => ";
+
                 // update the values in the distance and path list
                 $.each(this.outNeighborsIndex[currentKey], function (key1, neighbor) {
                     $.each(neighbor, function (key2, edge) {
 
-                        if (distances[key1] && (distances[key1] < 0 || (distances[key1] > visited[currentKey] + (inverse ? (maxEdgeWeight - edge.weight) : edge.weight)))) {
-                            distances[key1] = visited[currentKey] + (inverse ? (maxEdgeWeight - edge.weight >= 0 ? maxEdgeWeight - edge.weight : 0) : edge.weight);
-                            path[key1] = path[currentKey].slice();
-                            path[key1].push(key1);
+                        // Calculate the trust of the nodes connected to the current node (set total trust to -0.5 if there is a negative edge in the path) 
+                        edgeTrust = convertFromEdgeWeight(edge.weight, maxEdgeWeight);
+                        totalTrust = edgeTrust >= 0 && visited[currentKey] >= 0 ? ( ( visited[currentKey] * (path[currentKey].length - 1) ) + trustIncrement * edgeTrust ) / ( path[currentKey].length) : -0.5;
+
+                        logstring += key1 + "=" + totalTrust.toFixed(3) + "|" + edgeTrust.toFixed(3) + "|" + edge.weight +  " ";
+
+                        // Only use edges that lead to nodes we have not yet visited
+                        if( distances[key1] && path[currentKey].length > 0 ) {
+
+                            // Update the distance if the total trust is higher trustworthy than previously recorded
+                            if( distances[key1] < totalTrust) {
+                                distances[key1] = totalTrust;
+                                path[key1] = path[currentKey].slice();
+                                path[key1].push(key1);
+                            }
                         }
                     });
                 });
+
+                // console.log(logstring);
+            }
+
+            // Note: If the highestRecordedTrust is -1, it means we cannot make a path to the node.
+            if(highestRecordedTrust == -1){
+                path[end] = [];
             }
 
             // Log the path
             var totalLength = 0;
+            logstring = "";
             for (var i = 0; i < path[end].length - 1; i++) {
                 $.each(this.outNeighborsIndex[path[end][i]][path[end][i + 1]], function (key, edge) {
+                    logstring += convertFromEdgeWeight(edge.weight, maxEdgeWeight).toFixed(2) + ":";
                     totalLength += edge.weight;
                 });
             }
-            console.log("Shortest path " + start + "->" + end + ": " + ((end in distances) ? "not possible" : path[end].toString()) + " (" + totalLength + ")");
+
+            var logcheck = (!isNaN(parseInt(start.substring(1))) ? parseInt(start.substring(1)) : 0 ) - (!isNaN(parseInt(end.substring(1))) ? parseInt(end.substring(1)) : 0);
+            if( logcheck == 25 || logcheck == -25){
+                console.log("Shortest path " + start + "->" + end + ": " + ((path[end].length == 0) ? "not possible" : path[end].toString()) + " (" + visited[currentKey].toFixed(3) + "|" + totalLength + ")" + " (" + logstring + ") ");                
+            }
 
         } else {
             console.log("Shortest path " + start + "->" + end + ": " + "INVALID INPUT - One of the referenced nodes does not exist.");
             path[end] = [];
         }
 
-
         return path[end];
-
     });
+
 
     // Calculates the shortest path between two nodes
     //
@@ -315,7 +456,7 @@ function addRows(s) {
 
     // Loop through the graph and write HTML output for each node
     $.each(nodes, function (count, node) {
-        index = node.id.substring(1)
+        index = node.id.substring(1);
 
             // output for the select menu
             selectMenu += '<option value="' + index + '">' + node.label + '</option>';
@@ -404,6 +545,98 @@ function submitForm() {
     }
 }
 
+
+function submitAnalysisGraph(){
+    // disable or enable button accordingly
+    $('#nodes-button').prop('disabled', true);
+    $('#nodes-button').switchClass('ui-button', 'ui-button-disabled');
+    $('#lowerbound-button').prop('disabled', true);
+    $('#lowerbound-button').switchClass('ui-button', 'ui-button-disabled');
+    $("#counter-text").text("0 updates");
+    $('#page-analysis').hide();
+    $('#page-4').show();
+
+    // Create a new graph using the new number of nodes
+    pagedata.sigmaGraph.graph.clear();
+    pagedata.numberOfNodes = parseInt($("#nodes-input").val());
+    pagedata.sigmaGraph.graph.read(createGraph(pagedata.numberOfNodes));
+    pagedata.sigmaGraph.refresh();
+    submitName();
+    updateGraph(pagedata.sigmaGraph, pagedata.userNodeIndex, 1, pagedata.edgesPerNode, pagedata.maxEdgeWeight);
+
+}
+
+function submitLowerBound(){
+
+    // disable button accordingly
+    $('#nodes-button').prop('disabled', true);
+    $('#nodes-button').switchClass('ui-button', 'ui-button-disabled');
+    $('#lowerbound-button').prop('disabled', true);
+    $('#lowerbound-button').switchClass('ui-button', 'ui-button-disabled');
+    $("#counter-text").text("0 updates");
+    $('#page-analysis').hide();
+    $('#page-4').show();
+
+    var lowerbound = !isNaN(parseInt($("#lowerbound-input").val())) ? $("#lowerbound-input").val() : 0;
+    var edgeStats = getEdgeStats(pagedata.sigmaGraph.graph.edges(), pagedata.maxEdgeWeight, lowerbound);
+    var pathStats = getPathStats( pagedata.paths, edgeStats.lowerbound);
+    var trustPathcount = 0;
+    var trustworthyPathcount = 0;
+    var longestNodeCount = 0;
+    var shortestNodeCount = 0;
+
+    // Show the stats
+    $("#p-trust-count").text( edgeStats.count );
+    $("#p-trust-mean").text( edgeStats.mean.toFixed(3) );
+    $("#p-trust-stddev").text( edgeStats.stddev.toFixed(3) );
+    $("#p-trust-lowerbound").text( edgeStats.lowerbound.toFixed(3));
+
+    $("#p-path-all-count").text( pagedata.paths.length );
+    $("#p-path-count").text( pathStats.positivecount);
+    $("#p-trust-path-count").text( pathStats.count );
+    $("#p-path-max").text( pathStats.max);
+    $("#p-path-min").text( pathStats.min);
+    $("#span-path-mean").text(pathStats.mean.toFixed(2));
+    $("#span-path-stddev").text(pathStats.stddev.toFixed(2));
+        
+    // enable button accordingly
+    $('#nodes-button').prop('disabled', false);
+    $('#nodes-button').switchClass('ui-button-disabled', 'ui-button');
+    $('#lowerbound-button').prop('disabled', false);
+    $('#lowerbound-button').switchClass('ui-button-disabled', 'ui-button');
+    $('#page-analysis').show();
+    $('#page-4').hide();
+
+}
+
+function analyzeGraph(){
+
+    console.log("Start Analysis");
+    // Get a list of shortest paths
+    var path;
+    var x = 0;
+    pagedata.paths = [];
+    for(var i = 0; i < pagedata.numberOfNodes; i++){
+        for(var j = 0; j < pagedata.numberOfNodes; j++){
+            if(i != j){
+                // Find the shortest path between two nodes
+                path = pagedata.sigmaGraph.graph.shortestPath('n' + i, 'n' + j, true, pagedata.maxEdgeWeight);
+                
+                x++;
+
+                // Add the path to our list of paths
+                if(path.length > 1) {
+                    pagedata.paths.push({'id': i+'-'+j, 'path': path, 'trust': pagedata.sigmaGraph.graph.getPathDistance(path, pagedata.maxEdgeWeight)});
+                }
+            }
+        }
+    }
+
+    // Calculate the stats using the given lower bound
+    submitLowerBound();    
+    console.log("End Analysis");
+
+}
 
 function drawNewGraphs() {
     var endIndex = 0;
@@ -512,6 +745,9 @@ function updateCounter(data) {
             finalizeGraph(pagedata.sigmaGraph);
             drawNewGraphs();
         });
+    } else if ( $('#nodes-button').length){
+        finalizeGraphAnalysis();
+
     }
 
 }
@@ -585,6 +821,28 @@ function enableSlider(checked, sliderIndex) {
         }
     }
 
+}
+
+function finalizeGraphAnalysis(){
+    
+    // Change the colors based on incoming edge weights
+    pagedata.sigmaGraph.graph.updateColors();
+    pagedata.sigmaGraph.refresh();
+        
+    // Start the ForceAtlas2 algorithm:
+    if (!pagedata.sigmaGraph.isForceAtlas2Running()) {
+        console.log("... startForceAtlas2 ...");
+        pagedata.sigmaGraph.startForceAtlas2({ worker: true, barnesHutOptimize: false });
+        setTimeout(function () {
+            console.log("... killForceAtlas2 ...");
+            pagedata.sigmaGraph.stopForceAtlas2();
+            pagedata.sigmaGraph.killForceAtlas2();
+        
+            // Analyse the data
+            analyzeGraph();
+
+        }, 2000);
+    }
 }
 
 /**********************
@@ -671,7 +929,7 @@ function finalizeGraph(s) {
             console.log("... killForceAtlas2 ...");
             s.stopForceAtlas2();
             s.killForceAtlas2();
-        }, 10000);
+        }, 5000);
     }
 }
 
@@ -737,7 +995,103 @@ function convertToEdgeWeight(value, maxEdgeWeight){
     return ( ( value + 1 ) * maxEdgeWeight ) / 2;
 }
 
+function getPathStats(paths, lowerbound){
+    var stats = {};
+    stats.lowerbound = lowerbound;
+    stats.positivecount = 0;
+    stats.count = 0;
+    stats.sum = 0;
+    stats.mean = 0;
+    stats.devsum = 0;
+    stats.stddev = 0;
+    stats.min = 0;
+    stats.max = 0;
 
+
+    // The shortest, longest and average path 
+    for(var i = 0; i < paths.length; i++) {
+        if(paths[i].trust >= 0) { 
+            // Count all the paths with positive trust
+            stats.positivecount++;
+
+            if(paths[i].trust >= stats.lowerbound){
+                // Count and sum all the paths with trust higher than the lower bound
+                stats.count++;
+                stats.sum += paths[i].path.length
+
+                // Calculate the minimum and maximum node counts
+                if (paths[i].path.length < stats.min || stats.min == 0)
+                    stats.min = paths[i].path.length;
+                if (paths[i].path.length > stats.max)
+                    stats.max = paths[i].path.length;
+            }
+
+        }
+    }
+
+    // calculate the mean, min and max
+    stats.mean = stats.count > 0 ? stats.sum / stats.count : 0;
+    stats.min = stats.min > 0 ? stats.min - 1 : 0;
+    stats.max = stats.max > 0 ? stats.max - 1 : 0;
+
+    // Calculate the deviation sum
+    for(var i = 0; i < paths.length; i++) {
+        if(paths[i].trust >= stats.lowerbound){
+            stats.devsum += (paths[i].path.length - stats.mean) * (paths[i].path.length - stats.mean);
+        }
+    }
+    
+    // Calculate standard deviation
+    stats.stddev = Math.sqrt(stats.count > 0 ? stats.devsum / stats.count : 0);
+
+    return stats;
+}
+
+function getEdgeStats(edges, maxEdgeWeight, lowerbound){
+    var stats = {};
+    var temp = 0;
+    stats.count = 0;
+    stats.sum = 0;
+    stats.mean = 0;
+    stats.devsum = 0;
+    stats.stddev = 0;
+    stats.lowerbound = 0;
+    stats.min = 1;
+    stats.max = 0;
+
+    // Loop through the graph and sum the values for the positive and negative trust
+    $.each(edges, function (count, edge) {
+        if(edge.weight >= 50) {
+            // sum the trust levels
+            temp = convertFromEdgeWeight(edge.weight, maxEdgeWeight);
+            stats.sum += temp;
+            stats.count++;
+
+            // calculate the minimum and maximum trust
+            if(stats.min > temp){ stats.min = temp; }
+            if(stats.max < temp){ stats.max = temp; }
+        }
+    });
+    
+    // calculate the mean of the positive and negative trust
+    stats.mean = stats.count > 0 ? stats.sum / stats.count : 0;
+    if(stats.min > stats.max) { stats.min = stats.max; }
+    
+    // Loop through the graph and sum the deviation for the positive and negative trust
+    $.each(edges, function (count, edge) {
+        if(edge.weight >= 50) {
+            temp = convertFromEdgeWeight(edge.weight, maxEdgeWeight);
+            stats.devsum += (temp - stats.mean) * (temp - stats.mean);
+        }
+    });
+
+    // Calculate standard deviation and lowerbound
+    stats.stddev = Math.sqrt(stats.count > 0 ? stats.devsum / stats.count : 0);
+    stats.lowerbound = stats.mean - (lowerbound * stats.stddev);
+    stats.lowerbound = stats.lowerbound > 0 ? stats.lowerbound : 0;
+
+    return stats;
+}
 
 /**
  * Get an HEX color string between '#FA3737' (red) and '#37FA37' (green) with '#FFFFFF' (white) in the middle.
